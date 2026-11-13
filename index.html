@@ -1,0 +1,734 @@
+<!DOCTYPE html>
+<html lang="fa" dir="rtl">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<title>سفرِ واحدها</title>
+<style>
+/* =====================================================
+   Unit Quest «سفرِ واحدها» – Grade 3 measurement game
+   Sections: 1) base/theme  2) background & parallax
+   3) screens  4) game board  5) robot  6) effects
+   ===================================================== */
+:root{
+  --sky1:#bfe9ff; --sky2:#fdf1d6; --ink:#27345a; --card:#ffffff;
+  --blue:#4c8dff; --green:#34c77b; --gold:#ffc83d; --silver:#c3cbd9; --red:#ff6b6b;
+  --purple:#8a6bff; --radius:22px;
+  --shadow:0 8px 20px rgba(39,52,90,.18);
+}
+*{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
+html,body{margin:0;height:100%;overflow:hidden}
+body{font-family:"Vazirmatn","Vazir","IRANSans",Tahoma,"Segoe UI",sans-serif;color:var(--ink);
+  background:linear-gradient(180deg,var(--sky1),var(--sky2));user-select:none;-webkit-user-select:none}
+button{font:inherit;color:inherit;border:0;cursor:pointer}
+button:focus-visible,.card:focus-visible,[role=button]:focus-visible{outline:4px solid var(--purple);outline-offset:3px}
+
+/* ---------- 2) Background: clouds, particles, parallax ---------- */
+#bg{position:fixed;inset:0;overflow:hidden;z-index:0;pointer-events:none}
+.layer{position:absolute;inset:-30px;transition:transform .25s ease-out}
+.cloud{position:absolute;background:#fff;border-radius:60px;opacity:.85;filter:blur(.5px);
+  animation:drift linear infinite}
+.cloud::before,.cloud::after{content:"";position:absolute;background:#fff;border-radius:50%}
+.cloud::before{width:55%;height:140%;top:-60%;left:15%}
+.cloud::after{width:40%;height:110%;top:-40%;right:12%}
+@keyframes drift{from{transform:translateX(-30vw)}to{transform:translateX(130vw)}}
+.dot{position:absolute;border-radius:50%;background:rgba(255,255,255,.9);box-shadow:0 0 10px #fff;
+  animation:floatUp linear infinite}
+@keyframes floatUp{from{transform:translateY(20px);opacity:0}20%{opacity:.9}to{transform:translateY(-110vh);opacity:0}}
+.hills{position:absolute;bottom:-20px;left:-5%;width:110%;height:30vh}
+
+/* ---------- 3) Screens + zoom/fade transitions ---------- */
+#app{position:relative;z-index:1;height:100%}
+.screen{position:absolute;inset:0;display:none;flex-direction:column;align-items:center;
+  padding:12px 12px 120px;overflow-y:auto}
+.screen.active{display:flex;animation:zoomIn .55s cubic-bezier(.2,.9,.3,1.2) both}
+.screen.leaving{display:flex;animation:zoomOut .35s ease-in both}
+@keyframes zoomIn{from{opacity:0;transform:scale(.85)}to{opacity:1;transform:scale(1)}}
+@keyframes zoomOut{to{opacity:0;transform:scale(1.15)}}
+h1{margin:6px 0 0;font-size:clamp(28px,6vw,46px);text-shadow:0 3px 0 #fff;letter-spacing:-.5px}
+.sub{margin:2px 0 8px;font-size:clamp(14px,3vw,18px);opacity:.85}
+.btn{background:var(--blue);color:#fff;padding:12px 22px;border-radius:999px;font-weight:700;
+  font-size:clamp(16px,3.6vw,20px);box-shadow:0 5px 0 #2e63c4,var(--shadow);
+  transition:transform .15s,box-shadow .15s}
+.btn:hover{transform:translateY(-3px) scale(1.04)}
+.btn:active{transform:translateY(3px) scale(.97);box-shadow:0 1px 0 #2e63c4}
+.btn.green{background:var(--green);box-shadow:0 5px 0 #1f9a5b,var(--shadow)}
+.btn.gold{background:var(--gold);color:#5a3d00;box-shadow:0 5px 0 #d19a00,var(--shadow)}
+.btn.small{padding:6px 12px;font-size:16px}
+
+/* Menu: lab scene */
+#lab{width:min(560px,94vw);margin:4px 0;transform:perspective(900px) rotateX(6deg);
+  filter:drop-shadow(0 14px 14px rgba(39,52,90,.25))}
+#lab g[data-fam]{cursor:pointer;transition:transform .2s;transform-box:fill-box;transform-origin:center bottom}
+#lab g[data-fam]:hover{transform:scale(1.12) translateY(-4px)}
+.fams{display:grid;grid-template-columns:repeat(auto-fit,minmax(130px,1fr));gap:10px;width:min(640px,96vw);margin:6px 0}
+.fam{background:var(--card);border-radius:var(--radius);padding:10px;text-align:center;box-shadow:var(--shadow);
+  transition:transform .2s,box-shadow .2s;cursor:pointer}
+.fam:hover,.fam:active{transform:translateY(-5px) scale(1.04);box-shadow:0 14px 24px rgba(39,52,90,.25)}
+.fam .ic{font-size:34px}
+.chips{display:flex;flex-wrap:wrap;gap:4px;justify-content:center;margin-top:4px}
+.chip{background:#eef3ff;border-radius:999px;padding:2px 8px;font-size:13px;font-weight:700}
+.levels{display:flex;gap:10px;flex-wrap:wrap;justify-content:center;margin-top:8px}
+.lvl{min-width:150px;background:var(--card);border-radius:var(--radius);padding:12px 16px;box-shadow:var(--shadow);
+  text-align:center;transition:transform .2s;font-weight:700}
+.lvl:hover{transform:translateY(-6px) scale(1.05)}
+.lvl small{display:block;font-weight:400;opacity:.75}
+.lvl .best{margin-top:4px;font-size:15px}
+.lvl.easy{border-bottom:6px solid var(--green)}
+.lvl.medium{border-bottom:6px solid var(--gold)}
+.lvl.hard{border-bottom:6px solid var(--purple)}
+
+/* ---------- 4) Game board ---------- */
+#hud{width:min(760px,100%);display:flex;align-items:center;gap:8px;flex-wrap:wrap;justify-content:space-between}
+.pill{background:rgba(255,255,255,.9);border-radius:999px;padding:4px 12px;font-weight:700;box-shadow:var(--shadow)}
+.iconbtn{background:#fff;width:42px;height:42px;border-radius:50%;font-size:20px;box-shadow:var(--shadow);
+  transition:transform .15s}
+.iconbtn:hover{transform:scale(1.12) rotate(-6deg)}
+.iconbtn:active{transform:scale(.92)}
+#prog{width:min(760px,100%);height:18px;background:rgba(255,255,255,.7);border-radius:99px;margin:8px 0;
+  overflow:hidden;box-shadow:inset 0 2px 4px rgba(0,0,0,.15)}
+#fill{height:100%;width:0;border-radius:99px;background:linear-gradient(90deg,#ffd75e,#ff9f43);
+  transition:width .8s cubic-bezier(.3,1,.4,1);animation:glow 1.6s ease-in-out infinite}
+@keyframes glow{0%,100%{box-shadow:0 0 6px #ffc83d}50%{box-shadow:0 0 18px 4px #ffb300}}
+#qcard{width:min(760px,100%);background:var(--card);border-radius:var(--radius);padding:16px 18px;box-shadow:var(--shadow);
+  text-align:center;font-size:clamp(20px,4.6vw,30px);font-weight:800;line-height:1.7;position:relative}
+#qcard.shake{animation:shake .5s}
+@keyframes shake{0%,100%{transform:translateX(0)}20%{transform:translateX(-12px)}40%{transform:translateX(10px)}
+  60%{transform:translateX(-7px)}80%{transform:translateX(5px)}}
+#qicon{font-size:42px;display:block;animation:bob 2.4s ease-in-out infinite}
+@keyframes bob{50%{transform:translateY(-6px) rotate(4deg)}}
+#target{margin:16px 0;width:min(340px,90%);min-height:110px;border:4px dashed var(--blue);border-radius:28px;
+  background:rgba(255,255,255,.65);display:flex;align-items:center;justify-content:center;
+  font-size:clamp(24px,6vw,38px);font-weight:900;color:var(--blue);transition:all .25s;position:relative;text-align:center;padding:6px}
+#target.over{transform:scale(1.07);background:#e8f5ff;border-color:var(--green);box-shadow:0 0 0 8px rgba(52,199,123,.25)}
+#target.ok{border-style:solid;border-color:var(--green);color:#1f9a5b;background:#eafff3}
+#target.bad{border-color:var(--red);background:#fff0f0;box-shadow:0 0 22px 6px rgba(255,107,107,.45)}
+#cards{display:flex;gap:12px;flex-wrap:wrap;justify-content:center;width:min(760px,100%)}
+.card{background:#fff;border-radius:20px;padding:14px 18px;min-width:116px;text-align:center;font-weight:800;
+  font-size:clamp(18px,4.4vw,26px);box-shadow:0 6px 0 #cfd8ee,var(--shadow);cursor:grab;touch-action:none;
+  position:relative;z-index:2;transition:box-shadow .2s;border:3px solid #dfe8ff}
+.card small{display:block;font-size:.6em;opacity:.7;font-weight:600}
+.card:hover{box-shadow:0 10px 0 #cfd8ee,0 14px 24px rgba(39,52,90,.25)}
+.card.lift{z-index:50;cursor:grabbing;box-shadow:0 26px 30px rgba(39,52,90,.35);transition:none}
+.card.dim{opacity:.35;pointer-events:none;filter:grayscale(1)}
+.card.gone{opacity:0;pointer-events:none;transition:opacity .3s}
+#timer{font-variant-numeric:tabular-nums}
+#nextWrap{height:64px;margin-top:12px}
+
+/* Ladder / hint panel */
+#ladderPanel{position:fixed;inset:0;z-index:80;display:none;align-items:flex-end;justify-content:center;
+  background:rgba(39,52,90,.45)}
+#ladderPanel.show{display:flex}
+#ladderBox{background:#fff;width:min(520px,100%);max-height:88vh;overflow:auto;border-radius:28px 28px 0 0;padding:16px;
+  text-align:center;animation:slideUp .4s cubic-bezier(.2,1,.3,1)}
+@keyframes slideUp{from{transform:translateY(100%)}}
+.ladder{display:flex;flex-direction:column;align-items:center;margin:8px 0}
+.rung{background:#eef3ff;border-radius:16px;padding:6px 18px;font-weight:800;font-size:20px;min-width:170px;
+  border:3px solid transparent;transition:all .4s}
+.rung.lit{background:#fff3c4;border-color:var(--gold);transform:scale(1.12);box-shadow:0 0 16px rgba(255,200,61,.8)}
+.conn{height:36px;display:flex;align-items:center;gap:8px;font-weight:800;color:#8a94b0;transition:all .4s}
+.conn::before{content:"";width:6px;height:100%;background:currentColor;border-radius:3px;opacity:.5}
+.conn.lit{color:var(--green);transform:scale(1.15)}
+.conn.lit span{animation:pulse .8s infinite}
+@keyframes pulse{50%{transform:scale(1.25)}}
+#tip{font-size:19px;font-weight:700;margin:6px 0 10px;line-height:1.8}
+
+/* Pause overlay */
+#pauseOv{position:fixed;inset:0;z-index:90;background:rgba(255,255,255,.75);backdrop-filter:blur(6px);
+  display:none;flex-direction:column;align-items:center;justify-content:center;gap:14px;font-size:30px;font-weight:900}
+#pauseOv.show{display:flex;animation:zoomIn .3s both}
+
+/* ---------- 5) Robot guide ---------- */
+#robotWrap{position:fixed;bottom:6px;right:8px;z-index:60;display:flex;align-items:flex-end;gap:6px;pointer-events:none}
+#robot{width:clamp(70px,16vw,110px);animation:hover 3s ease-in-out infinite;pointer-events:auto;cursor:pointer;
+  filter:drop-shadow(0 8px 6px rgba(0,0,0,.2))}
+@keyframes hover{50%{transform:translateY(-12px)}}
+#robot.cheer{animation:cheer .9s}
+@keyframes cheer{0%{transform:translateY(0)}30%{transform:translateY(-34px) rotate(-8deg)}
+  60%{transform:translateY(-10px) rotate(8deg)}100%{transform:translateY(0)}}
+#robot.sad{animation:sad .7s}
+@keyframes sad{25%{transform:rotate(-9deg)}50%{transform:rotate(7deg)}75%{transform:rotate(-4deg)}}
+.eye{animation:blink 4s infinite;transform-box:fill-box;transform-origin:center}
+@keyframes blink{0%,94%,100%{transform:scaleY(1)}97%{transform:scaleY(.1)}}
+#bubble{background:#fff;border-radius:20px 20px 4px 20px;padding:8px 12px;max-width:min(52vw,240px);font-weight:700;
+  font-size:clamp(13px,3.2vw,17px);box-shadow:var(--shadow);line-height:1.6;animation:pop .35s both;margin-bottom:46px}
+@keyframes pop{from{transform:scale(.6);opacity:0}}
+
+/* ---------- 6) Effects ---------- */
+.spark{position:fixed;z-index:100;pointer-events:none;font-size:22px;color:var(--gold);
+  text-shadow:0 0 8px #ffd75e;left:0;top:0}
+.starpop{position:fixed;z-index:101;font-size:64px;pointer-events:none}
+#endStars{font-size:56px;margin:8px}
+.summary{background:#fff;border-radius:var(--radius);padding:16px 24px;box-shadow:var(--shadow);font-size:22px;font-weight:800;
+  margin:10px;text-align:center;line-height:2}
+.credit{margin-top:14px;background:rgba(255,255,255,.9);border-radius:999px;padding:6px 16px;font-weight:800;
+  font-size:clamp(14px,3.4vw,18px);box-shadow:var(--shadow);color:#5a3d9a}
+@media (max-width:480px){.screen{padding-bottom:130px}}
+@media (prefers-reduced-motion:reduce){*{animation-duration:.01s!important;transition-duration:.01s!important}}
+</style>
+</head>
+<body>
+
+<!-- Parallax background -->
+<div id="bg" aria-hidden="true">
+  <div class="layer" data-depth="10" id="layerFar"></div>
+  <div class="layer" data-depth="22" id="layerNear"></div>
+  <svg class="hills" viewBox="0 0 800 200" preserveAspectRatio="none">
+    <path d="M0 120 Q150 40 300 110 T600 90 T800 120 V200 H0Z" fill="#a8e6a1" opacity=".8"/>
+    <path d="M0 160 Q200 100 400 150 T800 140 V200 H0Z" fill="#7fd48b"/>
+  </svg>
+</div>
+
+<div id="app">
+
+  <!-- ============ MENU ============ -->
+  <section id="menu" class="screen active">
+    <h1>🧪 سفرِ واحدها</h1>
+    <p class="sub">با ربات کوچولو به آزمایشگاه اندازه‌گیری بیا!</p>
+
+    <!-- Isometric-style Measurement Lab (inline SVG, objects are clickable) -->
+    <svg id="lab" viewBox="0 0 520 290" role="img" aria-label="آزمایشگاه اندازه‌گیری">
+      <defs>
+        <linearGradient id="wall" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#fff8e1"/><stop offset="1" stop-color="#ffe3a8"/></linearGradient>
+        <linearGradient id="wood" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#c98a52"/><stop offset="1" stop-color="#9c6234"/></linearGradient>
+        <linearGradient id="liquid" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#7fd1ff"/><stop offset="1" stop-color="#3b9be8"/></linearGradient>
+      </defs>
+      <rect x="10" y="10" width="500" height="270" rx="26" fill="url(#wall)" stroke="#e8c27b" stroke-width="4"/>
+      <!-- window with light -->
+      <rect x="215" y="26" width="90" height="60" rx="10" fill="#cdeeff" stroke="#fff" stroke-width="5"/>
+      <path d="M215 86 L180 150 L340 150 L305 86Z" fill="#fff6c9" opacity=".35"/>
+      <!-- shelves -->
+      <rect x="28" y="128" width="464" height="14" rx="5" fill="url(#wood)"/>
+      <rect x="28" y="238" width="464" height="14" rx="5" fill="url(#wood)"/>
+
+      <!-- ruler (length) -->
+      <g data-fam="length" role="button" tabindex="0" aria-label="خط‌کش: طول">
+        <rect x="50" y="86" width="120" height="34" rx="6" fill="#ffd24d" stroke="#d9a400" stroke-width="2" transform="rotate(-6 110 103)"/>
+        <g stroke="#7a5a00" stroke-width="2" transform="rotate(-6 110 103)">
+          <path d="M60 86v12M70 86v8M80 86v12M90 86v8M100 86v12M110 86v8M120 86v12M130 86v8M140 86v12M150 86v8M160 86v12"/>
+        </g>
+      </g>
+      <!-- km sign (length) -->
+      <g data-fam="length" role="button" tabindex="0" aria-label="تابلوی کیلومتر">
+        <rect x="190" y="82" width="8" height="46" fill="#8a6a4a"/>
+        <rect x="170" y="70" width="48" height="26" rx="6" fill="#34c77b" stroke="#fff" stroke-width="3"/>
+        <text x="194" y="89" font-size="14" font-weight="800" fill="#fff" text-anchor="middle">km</text>
+      </g>
+      <!-- balance scale (mass) -->
+      <g data-fam="mass" role="button" tabindex="0" aria-label="ترازو: جرم">
+        <rect x="334" y="112" width="48" height="16" rx="4" fill="#7a86a8"/>
+        <rect x="355" y="64" width="6" height="52" fill="#7a86a8"/>
+        <rect x="318" y="62" width="80" height="6" rx="3" fill="#5b6788" transform="rotate(-5 358 65)"/>
+        <path d="M322 68 q14 24 28 0Z" fill="#ffb347" transform="translate(-2 4)"/>
+        <path d="M368 56 q14 24 28 0Z" fill="#ffb347" transform="translate(0 0)"/>
+        <rect x="373" y="46" width="14" height="12" rx="3" fill="#4a5578"/>
+        <text x="380" y="56" font-size="9" fill="#fff" text-anchor="middle">kg</text>
+      </g>
+      <!-- beaker (volume) -->
+      <g data-fam="volume" role="button" tabindex="0" aria-label="بشر: حجم">
+        <path d="M424 70 h44 l-4 58 h-36Z" fill="#ffffffaa" stroke="#7a86a8" stroke-width="3"/>
+        <path d="M428 94 q10 -6 18 0 t18 0 l-2 32 h-32Z" fill="url(#liquid)"/>
+        <path d="M424 82h12M424 94h12M424 106h12" stroke="#7a86a8" stroke-width="2"/>
+      </g>
+      <!-- clock (time) -->
+      <g data-fam="time" role="button" tabindex="0" aria-label="ساعت: زمان">
+        <circle cx="90" cy="198" r="34" fill="#fff" stroke="#ff7a7a" stroke-width="6"/>
+        <path d="M90 198 V176" stroke="#27345a" stroke-width="4" stroke-linecap="round"/>
+        <path d="M90 198 L106 206" stroke="#27345a" stroke-width="4" stroke-linecap="round"/>
+        <circle cx="90" cy="198" r="4" fill="#ff7a7a"/>
+      </g>
+      <!-- sand timer (time) -->
+      <g data-fam="time" role="button" tabindex="0" aria-label="ساعت شنی">
+        <path d="M170 164 h40 l-14 34 l14 34 h-40 l14 -34Z" fill="#fff9" stroke="#9c6234" stroke-width="4" stroke-linejoin="round"/>
+        <path d="M178 170 h24 l-8 18Z" fill="#f4c363"/>
+        <path d="M184 232 h12 l-6 -12Z" fill="#f4c363"/>
+      </g>
+      <!-- tape measure (length) -->
+      <g data-fam="length" role="button" tabindex="0" aria-label="متر نواری">
+        <circle cx="290" cy="212" r="26" fill="#ff8f5a" stroke="#c9602c" stroke-width="4"/>
+        <circle cx="290" cy="212" r="10" fill="#fff2"/>
+        <rect x="290" y="226" width="60" height="12" rx="3" fill="#ffe27a" stroke="#c9602c" stroke-width="2"/>
+      </g>
+      <!-- weights (mass) -->
+      <g data-fam="mass" role="button" tabindex="0" aria-label="وزنه‌ها">
+        <rect x="390" y="208" width="30" height="30" rx="6" fill="#6b7596"/><text x="405" y="229" font-size="12" fill="#fff" text-anchor="middle" font-weight="800">1kg</text>
+        <rect x="428" y="220" width="22" height="18" rx="5" fill="#8a94b4"/><text x="439" y="233" font-size="9" fill="#fff" text-anchor="middle" font-weight="800">100g</text>
+      </g>
+      <!-- coins (money: toman / rial) -->
+      <g data-fam="money" role="button" tabindex="0" aria-label="سکه: پول">
+        <circle cx="472" cy="226" r="13" fill="#ffd24d" stroke="#d9a400" stroke-width="3"/>
+        <text x="472" y="231" font-size="13" font-weight="800" fill="#7a5a00" text-anchor="middle">۱۰</text>
+      </g>
+    </svg>
+
+    <!-- Unit family cards (illustrated) -->
+    <div class="fams">
+      <div class="fam" data-fam="length" role="button" tabindex="0"><div class="ic">📏</div><b>طول</b>
+        <div class="chips"><span class="chip">mm</span><span class="chip">cm</span><span class="chip">m</span><span class="chip">km</span></div></div>
+      <div class="fam" data-fam="mass" role="button" tabindex="0"><div class="ic">⚖️</div><b>جرم</b>
+        <div class="chips"><span class="chip">g</span><span class="chip">kg</span></div></div>
+      <div class="fam" data-fam="volume" role="button" tabindex="0"><div class="ic">🥛</div><b>حجم مایع</b>
+        <div class="chips"><span class="chip">mL</span><span class="chip">L</span></div></div>
+      <div class="fam" data-fam="time" role="button" tabindex="0"><div class="ic">⏰</div><b>زمان</b>
+        <div class="chips"><span class="chip">ثانیه</span><span class="chip">دقیقه</span><span class="chip">ساعت</span><span class="chip">روز</span></div></div>
+      <div class="fam" data-fam="money" role="button" tabindex="0"><div class="ic">💰</div><b>پول</b>
+        <div class="chips"><span class="chip">تومان</span><span class="chip">ریال</span></div></div>
+    </div>
+
+    <div class="levels">
+      <button class="lvl easy"   data-lvl="easy">🌱 آسان<small>۱ متر = ؟ سانتی‌متر</small><div class="best" id="best-easy"></div></button>
+      <button class="lvl medium" data-lvl="medium">🌟 متوسط<small>۲ کیلوگرم = ؟ گرم</small><div class="best" id="best-medium"></div></button>
+      <button class="lvl hard"   data-lvl="hard">🚀 سخت<small>مسئله‌های زندگی</small><div class="best" id="best-hard"></div></button>
+    </div>
+    <div class="credit">🎨 طراح بازی: شهلا موسوی گورابی</div>
+  </section>
+
+  <!-- ============ GAME ============ -->
+  <section id="game" class="screen">
+    <div id="hud">
+      <button class="iconbtn" id="btnHome" aria-label="خانه">🏠</button>
+      <span class="pill">⭐ <span id="gold">۰</span> &nbsp; 🥈 <span id="silver">۰</span></span>
+      <span class="pill">⏱ <span id="timer">۰:۰۰</span></span>
+      <button class="iconbtn" id="btnPause" aria-label="توقف">⏸</button>
+      <button class="iconbtn" id="btnMute" aria-label="صدا">🔊</button>
+      <button class="iconbtn" id="btnHint" aria-label="راهنما">❓</button>
+    </div>
+    <div id="prog"><div id="fill"></div></div>
+
+    <div id="qcard"><span id="qicon">📏</span><span id="qtext"></span></div>
+    <div id="target" aria-label="جای پاسخ"></div>
+    <div id="cards"></div>
+    <div id="nextWrap"></div>
+  </section>
+
+  <!-- ============ END ============ -->
+  <section id="end" class="screen">
+    <h1>🎉 آفرین!</h1>
+    <div id="endStars"></div>
+    <div class="summary" id="endSummary"></div>
+    <div style="display:flex;gap:10px;flex-wrap:wrap;justify-content:center">
+      <button class="btn green" id="btnAgain">دوباره بازی کن</button>
+      <button class="btn" id="btnMenu">منوی اصلی</button>
+    </div>
+    <div class="credit">🎨 طراح بازی: شهلا موسوی گورابی</div>
+  </section>
+</div>
+
+<!-- Hint ladder panel -->
+<div id="ladderPanel"><div id="ladderBox">
+  <div id="tip"></div>
+  <div class="ladder" id="ladder"></div>
+  <button class="btn green" id="btnCloseLadder">فهمیدم! 👍</button>
+</div></div>
+
+<!-- Pause overlay -->
+<div id="pauseOv"><div>⏸ بازی متوقف شد</div><button class="btn gold" id="btnResume">ادامه بده ▶</button></div>
+
+<!-- Robot guide -->
+<div id="robotWrap">
+  <div id="bubble">سلام! من «یکا» هستم 🤖</div>
+  <svg id="robot" viewBox="0 0 100 120" aria-label="ربات راهنما">
+    <line x1="50" y1="6" x2="50" y2="22" stroke="#7a86a8" stroke-width="4"/>
+    <circle cx="50" cy="6" r="6" fill="#ff6b6b"><animate attributeName="opacity" values="1;.3;1" dur="1.4s" repeatCount="indefinite"/></circle>
+    <rect x="16" y="22" width="68" height="52" rx="20" fill="#e9f0ff" stroke="#4c8dff" stroke-width="4"/>
+    <rect x="26" y="34" width="48" height="28" rx="12" fill="#27345a"/>
+    <ellipse class="eye" cx="40" cy="48" rx="6" ry="8" fill="#7ff0ff"/>
+    <ellipse class="eye" cx="60" cy="48" rx="6" ry="8" fill="#7ff0ff"/>
+    <path d="M42 66 q8 6 16 0" stroke="#4c8dff" stroke-width="3" fill="none" stroke-linecap="round"/>
+    <rect x="28" y="78" width="44" height="32" rx="12" fill="#4c8dff"/>
+    <circle cx="50" cy="94" r="7" fill="#ffd24d"/>
+    <rect x="8" y="80" width="14" height="10" rx="5" fill="#e9f0ff" stroke="#4c8dff" stroke-width="3"/>
+    <rect x="78" y="80" width="14" height="10" rx="5" fill="#e9f0ff" stroke="#4c8dff" stroke-width="3"/>
+  </svg>
+</div>
+
+<script>
+/* =====================================================
+   JAVASCRIPT – structure:
+   A) helpers  B) unit data & challenge bank
+   C) audio    D) robot   E) save/load
+   F) screens  G) game flow  H) drag & drop
+   I) effects (sparkles, count-up, ladder)  J) init
+   ===================================================== */
+"use strict";
+
+/* ---------- A) helpers ---------- */
+const $  = s => document.querySelector(s);
+const $$ = s => [...document.querySelectorAll(s)];
+const FA = '۰۱۲۳۴۵۶۷۸۹';
+const fa = n => String(n).replace(/\d/g, d => FA[d]);          // Latin → Persian digits
+const rnd = (a,b) => a + Math.random()*(b-a);
+const shuffle = arr => { const a=[...arr]; for(let i=a.length-1;i>0;i--){const j=Math.floor(Math.random()*(i+1));[a[i],a[j]]=[a[j],a[i]];} return a; };
+const sleep = ms => new Promise(r => setTimeout(r, ms));
+
+/* ---------- B) data ---------- */
+// Unit names (Persian)
+const U = { mm:'میلی‌متر', cm:'سانتی‌متر', m:'متر', km:'کیلومتر',
+            g:'گرم', kg:'کیلوگرم', mL:'میلی‌لیتر', L:'لیتر',
+            sec:'ثانیه', min:'دقیقه', hr:'ساعت', day:'شبانه‌روز',
+            toman:'تومان', rial:'ریال' };
+// "Unit ladders": big → small, with the multiplier between neighbours
+const CHAINS = {
+  length:{ units:['km','m','cm','mm'], f:[1000,100,10], icon:'📏' },
+  mass:  { units:['kg','g'],           f:[1000],        icon:'⚖️' },
+  volume:{ units:['L','mL'],           f:[1000],        icon:'🥛' },
+  time:  { units:['day','hr','min','sec'], f:[24,60,60], icon:'⏰' },
+  money: { units:['toman','rial'],     f:[10],          icon:'💰' }   // 1 تومان = 10 ریال
+};
+const FACTS = {
+  length:'طول را با خط‌کش و متر اندازه می‌گیریم: ۱ متر = ۱۰۰ سانتی‌متر.',
+  mass:'جرم را با ترازو اندازه می‌گیریم: ۱ کیلوگرم = ۱۰۰۰ گرم.',
+  volume:'حجم مایع را با پیمانه اندازه می‌گیریم: ۱ لیتر = ۱۰۰۰ میلی‌لیتر.',
+  time:'زمان را با ساعت اندازه می‌گیریم: ۱ ساعت = ۶۰ دقیقه.',
+  money:'پول را با تومان و ریال می‌شماریم: ۱ تومان = ۱۰ ریال.'
+};
+
+/* Challenge format:
+   num: {fam, q, ans, unit, opts:[numbers], ladder:[fromUnit,toUnit], tip}
+   cmp: {fam, q, cmp:true, ans:'text', opts:[texts], ladder, tip}          */
+const BANK = {
+  easy:[ // direct multiples
+    {fam:'length',q:'۱ متر چند سانتی‌متر است؟',ans:100,unit:'cm',opts:[10,100,1000],ladder:['m','cm'],tip:'هر ۱ متر، ۱۰۰ سانتی‌متر است. ۱ متر = ۱۰۰ سانتی‌متر'},
+    {fam:'mass',q:'۱ کیلوگرم چند گرم است؟',ans:1000,unit:'g',opts:[10,100,1000],ladder:['kg','g'],tip:'۱ کیلوگرم = ۱۰۰۰ گرم. مثل یک بسته‌ی بزرگ شکر!'},
+    {fam:'volume',q:'۱ لیتر چند میلی‌لیتر است؟',ans:1000,unit:'mL',opts:[100,1000,60],ladder:['L','mL'],tip:'۱ لیتر = ۱۰۰۰ میلی‌لیتر. یک بطری آب کوچک!'},
+    {fam:'time',q:'۱ ساعت چند دقیقه است؟',ans:60,unit:'min',opts:[24,60,100],ladder:['hr','min'],tip:'۱ ساعت = ۶۰ دقیقه. عقربه‌ی بزرگ یک دور می‌چرخد.'},
+    {fam:'length',q:'۱ سانتی‌متر چند میلی‌متر است؟',ans:10,unit:'mm',opts:[10,100,1000],ladder:['cm','mm'],tip:'روی خط‌کش، بین دو عدد ۱۰ خط کوچک است. ۱ سانتی‌متر = ۱۰ میلی‌متر'},
+    {fam:'length',q:'۱ کیلومتر چند متر است؟',ans:1000,unit:'m',opts:[10,100,1000],ladder:['km','m'],tip:'۱ کیلومتر = ۱۰۰۰ متر. برای راه‌های دور!'},
+    {fam:'time',q:'۱ دقیقه چند ثانیه است؟',ans:60,unit:'sec',opts:[10,60,100],ladder:['min','sec'],tip:'۱ دقیقه = ۶۰ ثانیه. ساعت شنی را ببین!'},
+    {fam:'time',q:'۱ شبانه‌روز چند ساعت است؟',ans:24,unit:'hr',opts:[12,24,60],ladder:['day','hr'],tip:'۱ شبانه‌روز = ۲۴ ساعت. شب و روز با هم!'},
+    {fam:'money',q:'۱ تومان چند ریال است؟',ans:10,unit:'rial',opts:[1,10,100],ladder:['toman','rial'],tip:'هر ۱ تومان، ۱۰ ریال است. ۱ تومان = ۱۰ ریال'}
+  ],
+  medium:[ // multiples & missing numbers
+    {fam:'length',q:'۳ متر = ؟ سانتی‌متر',ans:300,unit:'cm',opts:[30,300,3000],ladder:['m','cm'],tip:'هر متر ۱۰۰ سانتی‌متر است. پس ۳ تا صد‌تا می‌شود ۳۰۰.'},
+    {fam:'mass',q:'۲ کیلوگرم = ؟ گرم',ans:2000,unit:'g',opts:[200,2000,20],ladder:['kg','g'],tip:'هر کیلوگرم ۱۰۰۰ گرم است. ۲ تا هزارتا می‌شود ۲۰۰۰.'},
+    {fam:'volume',q:'۵ لیتر = ؟ میلی‌لیتر',ans:5000,unit:'mL',opts:[500,5000,50],ladder:['L','mL'],tip:'هر لیتر ۱۰۰۰ میلی‌لیتر است. ۵ تا هزارتا می‌شود ۵۰۰۰.'},
+    {fam:'length',q:'۴۰۰ سانتی‌متر = ؟ متر',ans:4,unit:'m',opts:[4,40,400],ladder:['cm','m'],tip:'هر ۱۰۰ سانتی‌متر یک متر است. در ۴۰۰ چهار تا صد هست.'},
+    {fam:'mass',q:'۳۰۰۰ گرم = ؟ کیلوگرم',ans:3,unit:'kg',opts:[3,30,300],ladder:['g','kg'],tip:'هر ۱۰۰۰ گرم یک کیلوگرم است. در ۳۰۰۰ سه تا هزار هست.'},
+    {fam:'time',q:'۲ ساعت = ؟ دقیقه',ans:120,unit:'min',opts:[60,120,200],ladder:['hr','min'],tip:'۱ ساعت ۶۰ دقیقه است. ۶۰ + ۶۰ = ۱۲۰'},
+    {fam:'length',q:'۲۰ میلی‌متر = ؟ سانتی‌متر',ans:2,unit:'cm',opts:[2,20,200],ladder:['mm','cm'],tip:'هر ۱۰ میلی‌متر یک سانتی‌متر است. در ۲۰ دو تا ده هست.'},
+    {fam:'length',q:'۲ کیلومتر = ؟ متر',ans:2000,unit:'m',opts:[200,2000,20],ladder:['km','m'],tip:'هر کیلومتر ۱۰۰۰ متر است. ۲ تا هزارتا می‌شود ۲۰۰۰.'},
+    {fam:'time',q:'۲ شبانه‌روز = ؟ ساعت',ans:48,unit:'hr',opts:[24,48,60],ladder:['day','hr'],tip:'۱ شبانه‌روز ۲۴ ساعت است. ۲۴ + ۲۴ = ۴۸'},
+    {fam:'money',q:'۵ تومان = ؟ ریال',ans:50,unit:'rial',opts:[5,50,500],ladder:['toman','rial'],tip:'هر تومان ۱۰ ریال است. ۵ تا ده‌تا می‌شود ۵۰.'},
+    {fam:'money',q:'۱۰۰ ریال = ؟ تومان',ans:10,unit:'toman',opts:[1,10,1000],ladder:['rial','toman'],tip:'هر ۱۰ ریال یک تومان است. در ۱۰۰ ده تا ده هست.'}
+  ],
+  hard:[ // real-life word problems
+    {fam:'length',q:'طنابِ علی ۲ متر است. چند سانتی‌متر است؟',ans:200,unit:'cm',opts:[20,200,2000],ladder:['m','cm'],tip:'هر متر ۱۰۰ سانتی‌متر است. ۲ متر = ۲۰۰ سانتی‌متر'},
+    {fam:'volume',q:'در بطری ۳ لیتر آب است. چند میلی‌لیتر آب دارد؟',ans:3000,unit:'mL',opts:[300,3000,30],ladder:['L','mL'],tip:'هر لیتر ۱۰۰۰ میلی‌لیتر است. ۳ لیتر = ۳۰۰۰ میلی‌لیتر'},
+    {fam:'mass',q:'کیسه‌ی برنج ۵ کیلوگرم است. چند گرم است؟',ans:5000,unit:'g',opts:[500,5000,50],ladder:['kg','g'],tip:'هر کیلوگرم ۱۰۰۰ گرم است. ۵ کیلوگرم = ۵۰۰۰ گرم'},
+    {fam:'time',q:'یک فیلم ۲ ساعت طول می‌کشد. چند دقیقه است؟',ans:120,unit:'min',opts:[2,120,200],ladder:['hr','min'],tip:'۱ ساعت ۶۰ دقیقه است. ۲ ساعت = ۱۲۰ دقیقه'},
+    {fam:'length',q:'مدرسه تا خانه ۳ کیلومتر است. چند متر است؟',ans:3000,unit:'m',opts:[300,3000,30],ladder:['km','m'],tip:'هر کیلومتر ۱۰۰۰ متر است. ۳ کیلومتر = ۳۰۰۰ متر'},
+    {fam:'mass',cmp:true,q:'کدام جرم از همه بیشتر است؟',ans:'۱ کیلوگرم',opts:['۱ کیلوگرم','۹۰۰ گرم','۵۰۰ گرم'],ladder:['kg','g'],tip:'۱ کیلوگرم = ۱۰۰۰ گرم و از ۹۰۰ گرم بیشتر است.'},
+    {fam:'length',q:'یک نخ ۳۰ سانتی‌متر و نخ دیگر ۷۰ سانتی‌متر است. با هم چند متر می‌شوند؟',ans:1,unit:'m',opts:[1,10,100],ladder:['cm','m'],tip:'۳۰ + ۷۰ = ۱۰۰ سانتی‌متر. ۱۰۰ سانتی‌متر = ۱ متر'},
+    {fam:'time',q:'یک بازی ۱۲۰ ثانیه طول کشید. چند دقیقه بود؟',ans:2,unit:'min',opts:[2,12,20],ladder:['sec','min'],tip:'هر ۶۰ ثانیه یک دقیقه است. در ۱۲۰ دو تا شصت هست.'},
+    {fam:'volume',q:'در پارچ ۱ لیتر شیر بود. ۳۰۰ میلی‌لیتر نوشیدیم. چند میلی‌لیتر ماند؟',ans:700,unit:'mL',opts:[300,700,900],ladder:['L','mL'],tip:'۱ لیتر = ۱۰۰۰ میلی‌لیتر. ۱۰۰۰ − ۳۰۰ = ۷۰۰'},
+    {fam:'money',q:'یک مداد ۵۰۰ تومان است. چند ریال است؟',ans:5000,unit:'rial',opts:[50,500,5000],ladder:['toman','rial'],tip:'هر تومان ۱۰ ریال است. ۵۰۰ تومان = ۵۰۰۰ ریال'},
+    {fam:'money',q:'یک دفتر ۲۰۰۰ ریال است. چند تومان است؟',ans:200,unit:'toman',opts:[20,200,2000],ladder:['rial','toman'],tip:'هر ۱۰ ریال یک تومان است. ۲۰۰۰ ریال = ۲۰۰ تومان'}
+  ]
+};
+const LEVEL_NAME = {easy:'آسان',medium:'متوسط',hard:'سخت'};
+const ROUND_LEN = 6;          // questions per round
+const GOLD_SECONDS = 15;      // "fast" = gold star (gentle threshold)
+
+/* ---------- C) audio (WebAudio, no files needed) ---------- */
+let actx=null, muted=false, musicOn=false;
+function audio(){ if(!actx){ try{ actx=new (window.AudioContext||window.webkitAudioContext)(); }catch(e){} }
+  if(actx && actx.state==='suspended') actx.resume(); return actx; }
+function tone(freq,t0,dur,type='sine',vol=.15){
+  const c=audio(); if(!c||muted) return;
+  const o=c.createOscillator(), g=c.createGain();
+  o.type=type; o.frequency.setValueAtTime(freq,c.currentTime+t0);
+  g.gain.setValueAtTime(0.0001,c.currentTime+t0);
+  g.gain.exponentialRampToValueAtTime(vol,c.currentTime+t0+.02);
+  g.gain.exponentialRampToValueAtTime(0.0001,c.currentTime+t0+dur);
+  o.connect(g).connect(c.destination); o.start(c.currentTime+t0); o.stop(c.currentTime+t0+dur+.05);
+}
+const ding = () => { tone(880,0,.25,'sine',.2); tone(1320,.1,.4,'sine',.18); tone(1760,.2,.4,'triangle',.08); };
+const boop = () => { const c=audio(); if(!c||muted)return; const o=c.createOscillator(),g=c.createGain();
+  o.type='sine'; o.frequency.setValueAtTime(260,c.currentTime); o.frequency.exponentialRampToValueAtTime(150,c.currentTime+.3);
+  g.gain.setValueAtTime(.18,c.currentTime); g.gain.exponentialRampToValueAtTime(.001,c.currentTime+.35);
+  o.connect(g).connect(c.destination); o.start(); o.stop(c.currentTime+.4); };
+// calm pentatonic background music: a random soft note every ~700 ms
+function startMusic(){
+  if(musicOn) return; musicOn=true;
+  const scale=[261.6,293.7,329.6,392,440,523.3,587.3];
+  let step=0;
+  setInterval(()=>{ if(muted||document.hidden) return;
+    const n=scale[Math.floor(Math.random()*scale.length)];
+    tone(n,0,1.4,'triangle',.035);
+    if(step++%4===0) tone(n/2,0,2,'sine',.04);
+  },700);
+}
+
+/* ---------- D) robot guide ---------- */
+const SAY = {
+  hello:['سلام! بیا با هم واحدها را یاد بگیریم! 🌟','آماده‌ای؟ یک مرحله انتخاب کن!'],
+  ok:['آفرین! عالی بود! 🎉','دمت گرم! درست بود! ⭐','چه باهوش! ادامه بده!','ایول! خودت را ببین! 🚀'],
+  hintOk:['خوبه! با راهنما هم یاد گرفتی 👍','آفرین! دفعه‌ی بعد بدون راهنما!'],
+  bad:['اشکالی ندارد! نردبان را ببین 🪜','یک بار دیگر امتحان کن! تو می‌توانی 💪','نزدیک بود! به نردبان نگاه کن.'],
+  start:['کارت درست را روی جای خالی بکش!','سؤال را با دقت بخوان 😊']
+};
+let bubbleTimer;
+function say(text){ const b=$('#bubble'); b.textContent=text; b.style.animation='none'; b.offsetHeight; b.style.animation='';
+  clearTimeout(bubbleTimer); }
+const pick = a => a[Math.floor(Math.random()*a.length)];
+function robotReact(cls){ const r=$('#robot'); r.classList.remove('cheer','sad'); r.offsetHeight; r.classList.add(cls);
+  setTimeout(()=>r.classList.remove(cls),950); }
+
+/* ---------- E) save / load progress (localStorage) ---------- */
+const KEY='unitquest_v1';
+let save={best:{easy:null,medium:null,hard:null},muted:false};
+try{ const s=JSON.parse(localStorage.getItem(KEY)); if(s) save=Object.assign(save,s); }catch(e){}
+const persist=()=>{ try{ localStorage.setItem(KEY,JSON.stringify(save)); }catch(e){} };
+function renderBest(){
+  for(const l of ['easy','medium','hard']){
+    const b=save.best[l];
+    $('#best-'+l).textContent = b ? `⭐${fa(b.gold)}  🥈${fa(b.silver)}` : 'هنوز بازی نشده';
+  }
+}
+
+/* ---------- F) screens (zoom + fade) ---------- */
+let current='menu';
+function go(name){
+  const from=$('#'+current), to=$('#'+name);
+  if(from===to) return;
+  from.classList.add('leaving'); from.classList.remove('active');
+  setTimeout(()=>from.classList.remove('leaving'),350);
+  setTimeout(()=>to.classList.add('active'),200);
+  current=name;
+}
+
+/* ---------- G) game flow ---------- */
+let G={level:'easy',qs:[],i:0,gold:0,silver:0,hinted:false,wrong:false,locked:false,paused:false,qTime:0,total:0,cur:null};
+let timerId=null;
+
+function startLevel(level){
+  startMusic(); audio();
+  G={level,qs:shuffle(BANK[level]).slice(0,ROUND_LEN),i:0,gold:0,silver:0,hinted:false,wrong:false,locked:false,paused:false,qTime:0,total:0,cur:null};
+  $('#gold').textContent=fa(0); $('#silver').textContent=fa(0); $('#fill').style.width='0%';
+  go('game'); setTimeout(loadQuestion,450);
+  clearInterval(timerId); timerId=setInterval(tick,250);
+}
+function tick(){ if(G.paused||G.locked||panelOpen()||current!=='game') return;
+  G.qTime+=.25; G.total+=.25;
+  const s=Math.floor(G.qTime); $('#timer').textContent=`${fa(Math.floor(s/60))}:${fa(String(s%60).padStart(2,'0'))}`; }
+
+function loadQuestion(){
+  const q=G.cur=G.qs[G.i];
+  G.hinted=false; G.wrong=false; G.locked=false; G.qTime=0; $('#timer').textContent='۰:۰۰';
+  $('#qicon').textContent=CHAINS[q.fam].icon;
+  $('#qtext').textContent=q.q;
+  const t=$('#target'); t.className=''; t.textContent = q.cmp ? 'جواب را اینجا بیانداز' : `؟ ${U[q.unit]}`;
+  $('#nextWrap').innerHTML='';
+  // build answer cards
+  const box=$('#cards'); box.innerHTML='';
+  shuffle(q.opts).forEach(o=>{
+    const c=document.createElement('div'); c.className='card'; c.tabIndex=0; c.setAttribute('role','button');
+    c.dataset.val=o;
+    c.innerHTML = q.cmp ? o : `${fa(o)}<small>${U[q.unit]}</small>`;
+    attachDrag(c,o); box.appendChild(c);
+  });
+  $('#fill').style.width = (G.i/ROUND_LEN*100)+'%';
+  say(pick(SAY.start));
+}
+
+function submit(card,val){
+  if(G.locked||G.paused) return;
+  const q=G.cur;
+  if(String(val)===String(q.ans)) onCorrect(card); else onWrong(card);
+}
+
+async function onCorrect(card){
+  G.locked=true; ding();
+  // gold = fast & no hint & no mistakes; otherwise silver
+  const gold = !G.hinted && !G.wrong && G.qTime<=GOLD_SECONDS;
+  if(gold) G.gold++; else G.silver++;
+  $('#gold').textContent=fa(G.gold); $('#silver').textContent=fa(G.silver);
+  await flyToTarget(card);                       // bounce to target
+  const t=$('#target'); t.className='ok';
+  const r=t.getBoundingClientRect();
+  sparkles(r.left+r.width/2, r.top+r.height/2);  // golden sparkles
+  if(G.cur.cmp) t.textContent=G.cur.ans;
+  else countUp(t,G.cur.ans,G.cur.unit);          // smooth count-up number
+  starPop(r.left+r.width/2, r.top, gold);
+  robotReact('cheer'); say(G.hinted?pick(SAY.hintOk):pick(SAY.ok));
+  const last = G.i===ROUND_LEN-1;
+  const b=document.createElement('button'); b.className='btn green'; b.textContent= last?'پایان 🏁':'ادامه ◀';
+  b.onclick=()=>{ G.i++; $('#fill').style.width=(G.i/ROUND_LEN*100)+'%';
+    if(G.i>=ROUND_LEN) finish(); else { transitionQuestion(); } };
+  $('#nextWrap').appendChild(b);
+}
+function transitionQuestion(){
+  const g=$('#game'); g.style.animation='zoomOut .25s both';
+  setTimeout(()=>{ g.style.animation=''; loadQuestion(); g.classList.remove('active'); g.offsetHeight; g.classList.add('active'); },250);
+}
+
+function onWrong(card){
+  boop(); G.wrong=true;
+  card.classList.add('dim');
+  const q=$('#qcard'); q.classList.remove('shake'); q.offsetHeight; q.classList.add('shake');
+  const t=$('#target'); t.classList.add('bad'); setTimeout(()=>t.classList.remove('bad'),900);
+  robotReact('sad'); say(pick(SAY.bad));
+  setTimeout(()=>showLadder(G.cur,true),650);    // animated unit ladder shows the conversion path
+}
+
+function finish(){
+  clearInterval(timerId);
+  const b=save.best[G.level], score=G.gold*2+G.silver;
+  if(!b || score > b.gold*2+b.silver) save.best[G.level]={gold:G.gold,silver:G.silver};
+  persist(); renderBest();
+  $('#endStars').textContent='⭐'.repeat(G.gold)+'🥈'.repeat(G.silver);
+  $('#endSummary').innerHTML=`مرحله‌ی ${LEVEL_NAME[G.level]}<br>⭐ ستاره‌ی طلایی: ${fa(G.gold)}<br>🥈 ستاره‌ی نقره‌ای: ${fa(G.silver)}`;
+  go('end'); setTimeout(()=>{ for(let i=0;i<6;i++) setTimeout(()=>sparkles(rnd(80,innerWidth-80),rnd(120,innerHeight/2)),i*200); ding(); },500);
+  robotReact('cheer'); say(G.gold>=4?'تو یک قهرمان واحدهایی! 🏆':'خیلی خوب بود! دوباره امتحان کن تا ستاره‌های بیشتری بگیری!');
+}
+
+/* pause / mute / hint buttons */
+function setPause(p){ G.paused=p; $('#pauseOv').classList.toggle('show',p); }
+$('#btnPause').onclick=()=>setPause(true);
+$('#btnResume').onclick=()=>setPause(false);
+$('#btnMute').onclick=()=>{ muted=!muted; save.muted=muted; persist(); $('#btnMute').textContent=muted?'🔇':'🔊'; audio(); };
+$('#btnHint').onclick=()=>{ if(G.locked||G.paused) return; G.hinted=true; showLadder(G.cur,false); };
+$('#btnHome').onclick=()=>{ clearInterval(timerId); go('menu'); say(pick(SAY.hello)); };
+$('#btnAgain').onclick=()=>startLevel(G.level);
+$('#btnMenu').onclick=()=>{ go('menu'); say(pick(SAY.hello)); };
+
+/* ---------- H) drag & drop (mouse + touch via Pointer Events) ---------- */
+function attachDrag(card,val){
+  let sx=0,sy=0,drag=false,moved=false;
+  const over = (x,y)=>{ const r=$('#target').getBoundingClientRect(); const pad=18;
+    return x>r.left-pad&&x<r.right+pad&&y>r.top-pad&&y<r.bottom+pad; };
+  card.addEventListener('pointerdown',e=>{
+    if(G.locked||G.paused) return;
+    card.setPointerCapture(e.pointerId); drag=true; moved=false; sx=e.clientX; sy=e.clientY;
+    card.style.transition='none'; card.classList.add('lift');           // "lift" effect
+  });
+  card.addEventListener('pointermove',e=>{
+    if(!drag) return;
+    const dx=e.clientX-sx, dy=e.clientY-sy;
+    if(Math.hypot(dx,dy)>6) moved=true;
+    card.style.transform=`translate(${dx}px,${dy}px) scale(1.12) rotate(${dx/35}deg)`;
+    $('#target').classList.toggle('over',over(e.clientX,e.clientY));
+  });
+  const end=e=>{
+    if(!drag) return; drag=false; card.classList.remove('lift');
+    const hit=over(e.clientX,e.clientY); $('#target').classList.remove('over');
+    if(hit||!moved){ submit(card,val);                                  // dropped on target, or simple tap
+      if(!G.locked) springBack(card); }
+    else springBack(card);
+  };
+  card.addEventListener('pointerup',end);
+  card.addEventListener('pointercancel',end);
+  card.addEventListener('keydown',e=>{ if(e.key==='Enter'||e.key===' '){ e.preventDefault(); submit(card,val); } });
+}
+// elastic return to the shelf
+function springBack(card){
+  card.style.transition='transform .5s cubic-bezier(.34,1.56,.64,1)'; card.style.transform='';
+}
+// bounce the card into the target zone (computes distance from the card's resting place)
+function flyToTarget(card){
+  return new Promise(res=>{
+    const cur=card.style.transform;
+    card.style.transition='none'; card.style.transform='';
+    const b=card.getBoundingClientRect(), t=$('#target').getBoundingClientRect();
+    const tx=t.left+t.width/2-(b.left+b.width/2), ty=t.top+t.height/2-(b.top+b.height/2);
+    card.style.transform=cur; card.offsetHeight;
+    card.style.transition='transform .55s cubic-bezier(.34,1.7,.5,1)';
+    card.style.transform=`translate(${tx}px,${ty}px) scale(.85)`;
+    setTimeout(()=>{ card.classList.add('gone'); res(); },520);
+  });
+}
+
+/* ---------- I) effects ---------- */
+// golden sparkles: DOM stars animated with the Web Animations API
+function sparkles(x,y){
+  for(let i=0;i<26;i++){
+    const s=document.createElement('div'); s.className='spark'; s.textContent=pick(['✦','★','✧','✨']);
+    s.style.fontSize=rnd(14,30)+'px'; document.body.appendChild(s);
+    const a=rnd(0,Math.PI*2), d=rnd(50,170);
+    s.animate([
+      {transform:`translate(${x}px,${y}px) scale(.3)`,opacity:1},
+      {transform:`translate(${x+Math.cos(a)*d}px,${y+Math.sin(a)*d-40}px) scale(1.2) rotate(${rnd(-200,200)}deg)`,opacity:0}
+    ],{duration:rnd(700,1300),easing:'cubic-bezier(.2,.8,.3,1)'}).onfinish=()=>s.remove();
+  }
+}
+function starPop(x,y,gold){
+  const s=document.createElement('div'); s.className='starpop'; s.textContent=gold?'⭐':'🥈';
+  s.style.left=(x-32)+'px'; s.style.top=y+'px'; document.body.appendChild(s);
+  s.animate([{transform:'translateY(0) scale(.2)',opacity:0},{transform:'translateY(-40px) scale(1.4)',opacity:1,offset:.4},
+             {transform:'translateY(-110px) scale(1)',opacity:0}],{duration:1300}).onfinish=()=>s.remove();
+}
+// count-up number: eased requestAnimationFrame animation from 0 to the answer
+function countUp(el,to,unit){
+  const dur=1000, t0=performance.now();
+  (function frame(now){
+    const p=Math.min(1,(now-t0)/dur), e=1-Math.pow(1-p,3);   // easeOutCubic
+    el.innerHTML=`${fa(Math.round(to*e))} <span style="font-size:.6em">${U[unit]}</span>`;
+    if(p<1) requestAnimationFrame(frame);
+  })(t0);
+}
+// Unit ladder: rungs (units) + connectors (×/÷ factor). Rungs between "from" and "to" light up one by one.
+function panelOpen(){ return $('#ladderPanel').classList.contains('show'); }
+async function showLadder(q,fromWrong){
+  const ch=CHAINS[q.fam], [a,b]=q.ladder;
+  const ia=ch.units.indexOf(a), ib=ch.units.indexOf(b);
+  const lo=Math.min(ia,ib), hi=Math.max(ia,ib), down=ib>ia;   // down = big → small unit (multiply)
+  $('#tip').textContent=(fromWrong?'نزدیک بود! ':'راهنما: ')+q.tip;
+  const L=$('#ladder'); L.innerHTML='';
+  ch.units.forEach((u,i)=>{
+    const r=document.createElement('div'); r.className='rung'; r.dataset.i=i; r.textContent = (u==='toman'||u==='rial') ? U[u] : `${U[u]} (${u==='sec'?'s':u==='min'?'min':u==='hr'?'h':u==='day'?'day':u})`;
+    L.appendChild(r);
+    if(i<ch.units.length-1){
+      const c=document.createElement('div'); c.className='conn'; c.dataset.i=i;
+      c.innerHTML=`<span>${down?'×':'÷'}${fa(ch.f[i])} ${down?'⬇':'⬆'}</span>`; L.appendChild(c);
+    }
+  });
+  $('#ladderPanel').classList.add('show');
+  // animate the path step by step
+  const order=[]; for(let i=lo;i<=hi;i++) order.push(i); if(!down) order.reverse();
+  for(let k=0;k<order.length;k++){
+    await sleep(450);
+    L.querySelector(`.rung[data-i="${order[k]}"]`)?.classList.add('lit');
+    if(k<order.length-1){
+      const ci=down?order[k]:order[k+1];
+      L.querySelector(`.conn[data-i="${ci}"]`)?.classList.add('lit');
+    }
+  }
+}
+$('#btnCloseLadder').onclick=()=>{ $('#ladderPanel').classList.remove('show'); };
+
+/* ---------- J) init: menu, parallax, robot facts, background ---------- */
+// level buttons
+$$('.lvl').forEach(b=>b.onclick=()=>startLevel(b.dataset.lvl));
+// tapping a lab object or family card → robot tells a fun fact
+function famClick(el){ const f=el.dataset.fam; startMusic(); audio(); say(FACTS[f]); robotReact('cheer'); }
+$$('[data-fam]').forEach(el=>{
+  el.addEventListener('click',()=>famClick(el));
+  el.addEventListener('keydown',e=>{ if(e.key==='Enter'||e.key===' '){ e.preventDefault(); famClick(el);} });
+});
+$('#robot').onclick=()=>{ say(pick(SAY.hello)); robotReact('cheer'); };
+
+// background clouds & floating particles
+(function buildBg(){
+  const far=$('#layerFar'), near=$('#layerNear');
+  for(let i=0;i<5;i++){ const c=document.createElement('div'); c.className='cloud';
+    const w=rnd(90,180); c.style.cssText=`width:${w}px;height:${w*.32}px;top:${rnd(3,45)}%;animation-duration:${rnd(60,120)}s;animation-delay:${-rnd(0,100)}s;opacity:${rnd(.5,.9)}`;
+    (i%2?far:near).appendChild(c); }
+  for(let i=0;i<22;i++){ const d=document.createElement('div'); d.className='dot'; const s=rnd(3,8);
+    d.style.cssText=`width:${s}px;height:${s}px;left:${rnd(0,100)}%;top:${rnd(40,110)}%;animation-duration:${rnd(10,24)}s;animation-delay:${-rnd(0,20)}s`;
+    near.appendChild(d); }
+})();
+// subtle parallax following mouse / touch
+function parallax(x,y){
+  const nx=(x/innerWidth-.5), ny=(y/innerHeight-.5);
+  $$('.layer').forEach(l=>{ const d=+l.dataset.depth; l.style.transform=`translate(${-nx*d}px,${-ny*d}px)`; });
+}
+addEventListener('mousemove',e=>parallax(e.clientX,e.clientY));
+addEventListener('touchmove',e=>{ const t=e.touches[0]; if(t) parallax(t.clientX,t.clientY); },{passive:true});
+
+// start
+muted=!!save.muted; $('#btnMute').textContent=muted?'🔇':'🔊';
+renderBest(); say(pick(SAY.hello));
+document.addEventListener('visibilitychange',()=>{ if(document.hidden&&current==='game') setPause(true); });
+</script>
+</body>
+</html>
